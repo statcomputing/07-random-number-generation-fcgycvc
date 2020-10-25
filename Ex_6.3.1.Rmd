@@ -1,0 +1,93 @@
+---
+title: "Ex_6.3.1"
+author: "Yicheng Guo"
+date: "2020/10/25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Ex 6.3.1
+## Warning:
+  Notice in this chapter, bayesian can be deemed as a tool to estimate only at present. Target of this chapter is to 
+sample from current dataset's original distribution.
+
+  Let $\theta=(\mu_1, \mu_2, k_1, k_2)$, where$k_i = 1/\sigma_i$, we have
+$$
+\begin{aligned}
+    f(\theta | data) = f(data|\theta) * p(\theta) &  \propto \prod (\delta k_1 e^{-k_1^2 (x - \mu_1)^2}
+    + (1 - \delta)k_2e^{k_2^2 (x - \mu_2^2)}) \\ *
+    & [\delta e^{-\mu_1^2/200 - 10k_1^2} /k_1 + (1-\delta)e^{-\mu_2^2/200 - 10k_2^2}/k_2]
+\end{aligned}
+$$
+
+Log posterior function in R code:
+```{r}
+logpost_1 <- function(x, delta, mu_1, mu_2, sigma_1, sigma_2){
+  k1 <- 1/sigma_1; k2 <- 1/sigma_2
+  result <- log(delta * k1 * dnorm(x, mu_1, sigma_1) + (1 - delta) * k2 * dnorm(x, mu_2, sigma_2)) + 
+            log(delta * sigma_1 * dnorm(mu_1, 0, 10) * exp(-10 * k1^2) + 
+                  (1 - delta) *  sigma_2 * dnorm(mu_1, 0, 10) * exp(-10 * k2^2))
+  return(sum(result))
+}
+```
+
+MCMC in R code:
+```{r}
+MCMC <- function(x, delta, mu_1, mu_2, sigma_1, sigma_2, nburn = 5, niter = 30){
+  thetaInit <- c(delta, mu_1, mu_2, sigma_1, sigma_2)
+  p <- length(thetaInit)
+  thetaCurrent <- thetaInit
+  ## define a function for full conditional sampling  
+  logFC <- function(th, idx) {
+    theta <- thetaCurrent
+    theta[idx] <- th
+    return(logpost_1(x, theta[1], theta[2], theta[3], theta[4], theta[5]))
+  }
+  indFC <- function(x, idx){
+    if(idx == 1){
+      return((x >= 0)*(x <= 1))
+    }else if(idx == 4 | idx == 5){
+      return((x > 0))
+    }else{
+      return(TRUE)
+    }
+  }
+  #In out, each row is one iteration of each parameter
+  out <- matrix(thetaInit, niter, p, byrow = TRUE)
+  ## Gibbs sampling
+  for (i in 2:niter) {
+    for (j in 1:p) {
+      ## general-purpose arms algorithm
+      thetaCurrent[j] <- HI::arms(thetaCurrent[j], logFC,
+                   indFC, 1, idx = j)
+      out[i, j] <- thetaCurrent[j]
+    }
+  }
+  out[-(1:nburn), ]
+}
+```
+
+Data generation:
+```{r}
+  n <- 35
+  delta <- 0.7 # true value to be estimated based on the data
+  set.seed(631)
+  u <- rbinom(n, prob = delta, size = 1)
+  x_hw7p2 <- rnorm(n, ifelse(u == 1, 7, 10), 0.5)
+```
+
+Sampling:
+```{r}
+  result_hw7p2 <- MCMC(x_hw7p2, 0.8, 8, 8, 0.3, 0.6)
+```
+
+```{r}
+layout(matrix(c(1, 2, 3, 4, 5, 6), 3, 2), heights = rep.int(3, 3))
+ts(result_hw7p2[1, ])
+ts(result_hw7p2[2, ])
+ts(result_hw7p2[3, ])
+ts(result_hw7p2[4, ])
+ts(result_hw7p2[5, ])
+```

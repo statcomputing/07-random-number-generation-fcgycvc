@@ -1,0 +1,111 @@
+---
+title: "STAT_5361_Hw7 Ex 5.3.1"
+author: "Yicheng Guo"
+date: "2020/10/22"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Ex. 5.3.1
+
+##(1)
+$$
+\begin{aligned}
+  f(x) \propto \sqrt{4+x}\,x^{\theta-1} e^{-x}, \quad
+  g(x) \propto (2 x^{\theta-1} + x^{\theta-1/2}) e^{-x}, \quad x>0. \\
+  \because when \ x \sim gamma(\alpha, \beta),\ f(x) =
+  \frac{e^{-x/\beta}x^{\alpha -1}}{\beta^\alpha \Gamma(\alpha)},\\
+  we \ have \int_0^\infty2x^{\theta -1}e^{-x}dx = 2\Gamma(\theta), \   \int_0^\infty x^{\theta - 1/2}e^{-x}dx = \Gamma(\theta + 0.5)
+\end{aligned}
+$$
+$\therefore C = \frac{1}{2\Gamma(\theta) + \Gamma(\theta + 0.5)}$, and g(x) is proportional to a mixture of $gamma(\theta, 1)$ and $gamma(\theta +0.5, 1)$, where weight for $gamma(\theta, 1)$ is $2\Gamma(\theta)/C$, and weight for $gamma(\theta + 0.5, 1)$ is $\Gamma(\theta +0.5)/C$.
+
+## (2) Pseudo code:
+w1 = $2\Gamma(\theta)/C$, 
+w2 = $\Gamma(\theta + 0.5)/C$
+
+```
+function(length, w1){
+  array of g
+  for i in 1:length{
+    u = runif(1)
+    if(u < w1) add random gamma(10000samples, alpha= theta, beta=1) to g
+    else add  random gamma(10000samples, alpha= theta+0.5, beta=1) to g
+  }
+  return g
+}
+
+g <- function(10000, w1)
+```
+
+```{r}
+theta <- 3
+set.seed(531)
+a1 <- gamma(theta) * 2
+a2 <- gamma(theta + 0.5)
+w1 <- a1 / (a1 + a2)
+g_sampling <- function(Len, w1, theta){
+  g <- 0
+  for(i in 1: Len){
+    u <- runif(1)
+    if(u < w1) g <- append(g, rgamma(1, shape = theta))
+    else g <- append(g, rgamma(1, shape = theta))
+  }
+  return(g)
+}
+  
+g <- g_sampling(10000, w1, theta)
+```
+
+```{r}
+  hist(g, xlim = c(0, 10), prob = T)
+  curve( (2 * x^(theta - 1) + x^(theta - 1)) * exp(-x) / (a1 + a2),
+        add = TRUE, col = "darkblue", xlim = c(0, 10))
+```
+
+## (3)
+$$
+\begin{aligned}
+  r(x) = f(x) / g(x) = \sqrt{4 + x} / (2 + \sqrt{x}), \\
+  r^2(x) = (4+x) / (4 + 4\sqrt{x} + x) = 1 - \frac{4}{\sqrt{x} + 4 +
+  4 / \sqrt{x}} \\ 
+  \geq 1 - \frac{4}{4 + 2\sqrt{\sqrt{x} * 4 / \sqrt{x}}} = 1/2, \\
+  r_{max} = \sqrt{2} \  when \ \sqrt{x} = 4 / \sqrt{x}, \ x = 4.
+\end{aligned}
+$$
+
+Take $\alpha = 1 / \sqrt{2}$.
+
+Pseudo code:
+u = runif(10000, [0, 1]),
+$r(x) = f(x) / \alpha g(x) = \sqrt{4 + x} / 0.5 (2 + \sqrt{x}),$
+for i in 1:10000{
+  x = g[i] (x from n (last question),)
+  if( u > r(x) ) accept x as an sample
+}
+
+```{r}
+rsq <- function(x){
+  return( (4 + x) / (4 + 4*sqrt(x) + x) )
+}
+sample_fx <- 0
+u <- runif(10000, 0, 1)
+for(i in 1:10000){
+  if(u[i]^2 <= rsq(g[i])) sample_fx <- append(sample_fx, g[i])
+}
+```
+
+```{r}
+hist(sample_fx, prob = T)
+f_pdf <- function(x){
+  sqrt(4 + x) * exp(-x) * (x ^ (theta - 1))
+}
+C <- integrate(f_pdf, 0, Inf)
+curve(f_pdf(x) / C$value,
+      add = TRUE, col = "red")
+```
